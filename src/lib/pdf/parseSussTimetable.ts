@@ -7,54 +7,45 @@ import { toLocalIso, ymd } from "../time/toZonedDate";
 
 const BRACKET_RE = /\[[^\]]+\]/g;
 
+// Row-start splitter that tolerates newlines between S/N and code
+const ROW_SPLIT_RE = /(?=^\s*\d{1,3}\s+[A-Z]{2,4}\d{3}\b)/m;
+
+// Trim page headers/footers and report scaffolding
+const CUT_TAIL_RE =
+  /(Site Information|End of Report|\*\*\* End of Report \*\*\*|Report ID:|Singapore University of Social Sciences|Page\s+No\.?:|Current Week|Timetable Details|^\s*Report Generated.*$)/im;
+
+// Normalize raw PDF text
 function normalize(raw: string) {
   return raw
     .replace(/\r/g, "")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{2,}/g, "\n")
     .replace(/WEDNESDA\nY/gi, "WEDNESDAY")
-    .replace(BRACKET_RE, (m) => m); // keep remarks in place (don't remove)
+    .replace(BRACKET_RE, (m) => m); // keep remarks in place
 }
 
+// Split PDF text into row-like buffers (one chunk per class row)
 function extractRows(pageText: string): string[] {
-  const lines = pageText.split("\n").map((l) => l.trim()).filter(Boolean);
-  const rows: string[] = [];
-  let buffer: string[] = [];
-  const flush = () => {
-    if (buffer.length) rows.push(buffer.join(" "));
-    buffer = [];
-  };
-  for (const ln of lines) {
-    buffer.push(ln);
-    const joined = buffer.join(" ");
-    const hasDate = DATE_RE.test(joined);
-    const timesCount = (joined.match(TIME_RE) || []).length;
-    const hasCode = CODE_RE.test(joined);
-    if (hasDate && timesCount >= 2 && hasCode) {
-      flush();
-    }
-  }
-  flush();
-  return rows;
+  const text = normalize(pageText).replace(CUT_TAIL_RE, "");
+  // Split BEFORE each S/N + CODE occurrence, keeping the delimiter in the chunk
+  const chunks = text.split(ROW_SPLIT_RE).map((s) => s.trim()).filter(Boolean);
+  return chunks.map((c) => c.replace(/\s+/g, " ").trim());
 }
 
 let idCounter = 0;
 const nextId = () => `evt_${++idCounter}`;
 
-/**
- * Venue salvage regexes — try these patterns if the simple slice fails.
- * Add more patterns here if you see other venue formats in the PDFs.
- */
+/** Regex patterns to salvage venue text */
 const SALVAGE_PATTERNS: RegExp[] = [
-  /HQ\s+BLK[^,\[\n]+/i,                          // "HQ BLK C - SR.C.8.11"
-  /\bSR\.[A-Z0-9.\-]+/i,                        // "SR.C.6.09"
-  /\bSR\.C\.[0-9.\-]+/i,
-  /Online Session[^\[\n]*/i,                    // "Online Session conducted on Canvas Zoom ..."
+  /HQ\s+BLK[^,\[\n]+/i,           // HQ BLK C - SR.C.8.11
+  /\bSR\.[A-Z0-9.\-]+/i,          // SR.C.6.09
+  /Online Session[^\[\n]*/i,      // Online Session conducted on Canvas Zoom
   /Canvas Zoom[^\[\n]*/i,
-  /\bLT\d+\b/i,                                 // "LT1", "LT01"
-  /\bBlk\s+[A-Z0-9]+\b/i,                       // "Blk C" variants
+  /\bLT\d+\b/i,                   // LT1, LT01
+  /\bBlk\s+[A-Z0-9]+\b/i,
   /(?:Block|Blk|Building)[^\[\n]*/i,
-  /[A-Z]{2,5}\.\w+\s*-\s*SR\.[A-Z0-9.\-]+/i,    // compound patterns
+  /[A-Z]{2,5}\.\w+\s*-\s*SR\.[A-Z0-9.\-]+/i,
+  /SIM\s+HEADQUARTERS[^\[\n]*/i,  // extra site wording seen in some exports
 ];
 
 export async function parseSussTimetable(
@@ -63,10 +54,13 @@ export async function parseSussTimetable(
   const events: Event[] = [];
 
   for (const pg of pages) {
-    const text = normalize(pg.text);
-    const rows = extractRows(text);
+    const rows = extractRows(pg.text);
 
-    for (const row of rows) {
+    for (let row of rows) {
+      // Belt-and-suspenders: nuke any remaining scaffolding
+      row = row.replace(CUT_TAIL_RE, "").trim();
+      if (!row) continue;
+
       const code = (row.match(CODE_RE) || [])[0];
       if (!code) continue;
 
@@ -75,37 +69,53 @@ export async function parseSussTimetable(
       const timeMatches = Array.from(row.matchAll(TIME_RE));
       if (!dateM || timeMatches.length < 2) continue;
 
-      // date + times
+      // Parse date and time
       const timeTokens = timeMatches.map((m: any) => `${m[1]} ${m[2]}`.toUpperCase());
       const dateTok = `${dateM[1]} ${dateM[2].toUpperCase()} ${dateM[3]}`;
       const d = parseDateToken(dateTok);
       const tFrom = parseTimeToken(timeTokens[0]);
-      const tTo = parseTimeToken(timeTokens[1]);
+      const tTo   = parseTimeToken(timeTokens[1]);
       if (!d || !tFrom || !tTo) continue;
 
-      // remarks = bracketed content (if any)
+      // Extract & de-duplicate remarks (in brackets)
       const remarksArr = row.match(BRACKET_RE) || [];
-      const remarks = remarksArr.length ? remarksArr.join(" ").trim() : undefined;
+      const remarks = (() => {
+        if (!remarksArr.length) return undefined;
+        const uniq = Array.from(new Set(remarksArr.map(s => s.replace(/\s+/g, " ").trim())));
+        return uniq.join(" ");
+      })();
 
-      // Primary extraction: text BETWEEN the 2nd time token and the first '[' after it
+      // Venue: slice between 2nd time and first cut marker
       const secondTimeMatch = timeMatches[1];
       const toEndIndex = (secondTimeMatch.index ?? 0) + secondTimeMatch[0].length;
       if (toEndIndex < 0) continue;
 
-      // Candidate raw tail
-      const bracketPos = row.indexOf("[", toEndIndex);
-      let rawVenue = bracketPos !== -1 ? row.slice(toEndIndex, bracketPos) : row.slice(toEndIndex);
+      const tail = row.slice(toEndIndex);
 
-      // Clean leading separators/spaces
-      rawVenue = rawVenue.replace(/^[\s:,\-\u2013\u2014]+/, "");
+      // Cut venue at [remarks], next row marker, weekday, or another date
+      const CUT_TOKENS: RegExp[] = [
+        /\[/,
+        /\b\d{1,3}\s+[A-Z]{2,4}\d{3}\b/, // next S/N + Module
+        /\b(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY)\b/i,
+        new RegExp(DATE_RE.source, "i"),
+      ];
+      let cutPos = tail.length;
+      for (const re of CUT_TOKENS) {
+        const m = re.exec(tail);
+        if (m && m.index < cutPos) cutPos = m.index;
+      }
 
-      // Remove any bracketed text left just in case
-      rawVenue = rawVenue.replace(BRACKET_RE, "");
+      let rawVenue = tail
+        .slice(0, cutPos)
+        .replace(/^[\s:,\-\u2013\u2014]+/, "")
+        .replace(BRACKET_RE, "");
 
-      // Collapse whitespace and trim
+      // Defensive: if a new row marker somehow appears inside the venue slice, cut it
+      rawVenue = rawVenue.replace(/\s*\b\d{1,3}\s+[A-Z]{2,4}\d{3}\b[\s\S]*$/m, "");
+
       let venueText = rawVenue.replace(/\s+/g, " ").trim();
 
-      // If primary approach produced nothing, try salvage patterns searching the entire row
+      // Salvage if missing
       if (!venueText) {
         for (const pat of SALVAGE_PATTERNS) {
           const m = row.match(pat);
@@ -116,7 +126,7 @@ export async function parseSussTimetable(
         }
       }
 
-      // Final safety fallback
+      // Final fallback: generic match
       if (!venueText) {
         const generic = row.match(/(HQ\s+BLK[^,\[\n]+|SR\.[A-Z0-9.\-]+|Online Session[^\[\n]*)/i);
         if (generic && generic[0]) {
@@ -126,16 +136,16 @@ export async function parseSussTimetable(
 
       const venue = venueText || undefined;
 
-      // Build ISO start/end (local-time, no offset) + stable date (no UTC shift)
+      // Build stable date + ISO times (no timezone drift)
       const startIso = toLocalIso(d.y, d.m, d.d, tFrom.h, tFrom.m);
-      const endIso   = toLocalIso(d.y, d.m, d.d, tTo.h,   tTo.m);
-      const dateStr  = ymd(d.y, d.m, d.d); // <-- use parsed Y/M/D directly
+      const endIso   = toLocalIso(d.y, d.m, d.d, tTo.h, tTo.m);
+      const dateStr  = ymd(d.y, d.m, d.d);
 
       events.push({
         id: nextId(),
         moduleCode: code,
         group,
-        date: dateStr,         // <-- fixed to avoid timezone drift
+        date: dateStr,
         start: startIso,
         end: endIso,
         venue,
@@ -145,7 +155,7 @@ export async function parseSussTimetable(
     }
   }
 
-  // dedupe: same code, group, start, end
+  // Deduplicate
   const key = (e: Event) => [e.moduleCode, e.group ?? "", e.start, e.end].join("|");
   const map = new Map<string, Event>();
   for (const e of events) map.set(key(e), e);

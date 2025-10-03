@@ -54,8 +54,11 @@ export default function App() {
       </main>
 
       <footer className="border-t border-gray-800 py-6 text-sm text-gray-400">
-        <div className="max-w-6xl mx-auto px-4">
-          All parsing is done locally in your browser. No files are uploaded.
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between gap-3">
+          <p>All parsing is done locally in your browser. No files are uploaded.</p>
+          <p>
+            Built by <span className="font-medium text-gray-200"><a href="https://github.com/TayGuangSheng">GS Tay</a></span>
+          </p>
         </div>
       </footer>
     </div>

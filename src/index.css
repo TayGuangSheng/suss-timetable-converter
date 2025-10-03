@@ -97,3 +97,26 @@
 .fc .fc-timegrid-event .fc-event-title {
   white-space: normal;
 }
+
+/* List view day header background + text */
+.fc .fc-list-day-cushion {
+  @apply bg-sky-900 text-zinc-100;  /* pick your colors */
+}
+
+/* Optional: lighter side text (weekday/date on the right) */
+.fc .fc-list-day-side-text,
+.fc .fc-list-day-text {
+  @apply text-zinc-300;
+}
+
+/* Optional: border color to match your theme */
+.fc-theme-standard .fc-list-table,
+.fc-theme-standard .fc-list-day-cushion {
+  border-color: #1f2937; /* slate-800-ish */
+}
+
+/* Only the top-left header cell in timeGrid (the blank corner) */
+.fc .fc-col-header th.fc-timegrid-axis {
+  background-color: #0C4A6E;  
+  border-color: #1f2937 !important;      /* optional: match your theme borders */
+}
