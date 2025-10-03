@@ -1,7 +1,6 @@
 {
-  "buildCommand": "vite build",
+  "installCommand": "npm ci --include=dev",
+  "buildCommand": "node ./node_modules/vite/bin/vite.js build",
   "outputDirectory": "dist",
-  "env": {
-    "NPM_CONFIG_PRODUCTION": "false"
-  }
+  "nodeVersion": "18.x"
 }
