@@ -1,22 +1,40 @@
-import { createEvents } from "ics";
+// src/lib/calendar/ics.ts
+import { createEvents, type EventAttributes } from "ics";
+import { DateTime } from "luxon";
 import type { Event } from "./eventSchema";
 
 export function eventsToIcs(events: Event[]) {
-  const icsEvents = events.map((e) => {
-    const start = new Date(e.start);
-    const end = new Date(e.end);
+  const icsEvents: EventAttributes[] = events.map((e) => {
+    const dtStart = DateTime.fromISO(e.start, { zone: "local" });
+    const dtEnd   = DateTime.fromISO(e.end,   { zone: "local" });
+
     return {
+      // keep your original title style
       title: `${e.moduleCode}${e.group ? " " + e.group : ""} @ ${e.venue ?? ""}`.trim(),
       description: e.remarks ?? "",
-      start: [start.getFullYear(), start.getMonth()+1, start.getDate(), start.getHours(), start.getMinutes()],
-      end: [end.getFullYear(), end.getMonth()+1, end.getDate(), end.getHours(), end.getMinutes()],
       location: e.venue ?? "",
-      status: "CONFIRMED"
+      status: "CONFIRMED",
+
+      // IMPORTANT: pass Luxon DateTime, not number[]
+      start: dtStart,
+      end: dtEnd,
+
+      // tell ics these are local times to avoid TZ drift
+      startInputType: "local",
+      startOutputType: "local",
+      endInputType: "local",
+      endOutputType: "local",
+
+      // nice-to-have: stable UID
+      uid: e.id,
+      productId: "suss-timetable-converter",
+      calName: "SUSS Timetable",
     };
   });
+
   const { error, value } = createEvents(icsEvents);
   if (error) throw error;
-  return value;
+  return value!;
 }
 
 export function downloadIcs(filename: string, content: string) {
