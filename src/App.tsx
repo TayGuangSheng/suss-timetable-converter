@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PdfUpload from "./components/Upload/PdfUpload";
 import CalendarView from "./components/Calendar/CalendarView";
 import FiltersBar from "./components/Calendar/FiltersBar";
@@ -7,8 +7,10 @@ import ConflictBanner from "./components/Calendar/ConflictBanner";
 import ExportButtons from "./components/Export/ExportButtons";
 import EventList from "./components/Editor/EventList";
 import { Event } from "./lib/calendar/eventSchema";
-
+import type { ColorOverrides } from "./lib/calendar/colorPalette"; // ⬅️ NEW
 import logo from "./assets/logo.png";
+
+const COLOR_KEY = "suss-color-overrides"; // ⬅️ NEW
 
 export default function App() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -17,6 +19,20 @@ export default function App() {
     search: ""
   });
 
+  // ⬅️ NEW: load & persist color overrides
+  const [overrides, setOverrides] = useState<ColorOverrides>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(COLOR_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLOR_KEY, JSON.stringify(overrides));
+    } catch {}
+  }, [overrides]);
+
   const visible = events.filter((e) => {
     const modOk = filter.modules.length === 0 || filter.modules.includes(e.moduleCode);
     const s = (e.venue || "") + " " + (e.remarks || "") + " " + e.moduleCode + " " + (e.group || "");
@@ -24,15 +40,17 @@ export default function App() {
     return modOk && searchOk;
   });
 
-  const modules = Array.from(new Set(events.map((e) => e.moduleCode))).sort();
+  const modules = useMemo(
+    () => Array.from(new Set(events.map((e) => e.moduleCode))).sort(),
+    [events]
+  );
 
   return (
     <div className="min-h-screen">
       <header className="border-b border-gray-800 sticky top-0 bg-gray-950/80 backdrop-blur z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          {/* ⬇️ replace the blue dot with your logo */}
           <img
-            src={logo}              // if using public/logo.svg: use src="/logo.svg"
+            src={logo}
             alt="SUSS Timetable Converter"
             className="h-6 w-6 rounded-md"
             loading="eager"
@@ -52,12 +70,26 @@ export default function App() {
             search={filter.search}
             onSearch={(v) => setFilter((f) => ({ ...f, search: v }))}
           />
-          <Legend events={events} />
+          {/* ⬇️ pass overrides + handlers */}
+          <Legend
+            events={events}
+            overrides={overrides}
+            onPick={(code, color) => setOverrides((o) => ({ ...o, [code]: color }))}
+            onReset={(code) =>
+              setOverrides((o) => {
+                const n = { ...o };
+                delete n[code];
+                return n;
+              })
+            }
+          />
           <ExportButtons events={visible} />
         </section>
+
         <section className="lg:col-span-3 space-y-4">
           <ConflictBanner events={visible} />
-          <CalendarView events={visible} />
+          {/* ⬇️ make calendar use the chosen colors */}
+          <CalendarView events={visible} overrides={overrides} />
           <EventList events={visible} onChange={setEvents} />
         </section>
       </main>

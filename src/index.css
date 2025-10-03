@@ -117,6 +117,6 @@
 
 /* Only the top-left header cell in timeGrid (the blank corner) */
 .fc .fc-col-header th.fc-timegrid-axis {
-  background-color: #0C4A6E;  
+  background-color: #0C4A6E;  /* blue */
   border-color: #1f2937 !important;      /* optional: match your theme borders */
 }
