@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #38bdf8;
+}
+
+.fc .fc-toolbar-title {
+  @apply text-xl font-semibold;
+}
+
+/* Day-of-week header row (Sun, Mon, …) */
+.fc .fc-col-header-cell {
+  background: #0C4A6E;      /* header cell bg */
+  color: #e5e7eb;           /* header text color */
+  border-color: #1f2937;    /* header cell border */
+  font-weight: 600;         /* a bit bolder */
+}
+
+/* Highlight Sunday differently */
+.fc .fc-col-header-cell:nth-child(1) {
+  color: #f47f7f;
+}
+
+/* Grid borders */
+.fc .fc-scrollgrid,
+.fc .fc-scrollgrid-section > * {
+  border-color: #1f2937;
+}
+
+/* Capitalize first letter of toolbar buttons */
+.fc .fc-button {
+  text-transform: capitalize;
+}
+
+/* ------- MONTH (dayGrid) ------- */
+/* Keep month events on one line with ellipsis */
+.fc .fc-daygrid-event .fc-event-title,
+.fc .fc-daygrid-event .fc-event-time {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tighter month cell padding */
+.fc .fc-daygrid-day-frame {
+  padding: 2px 4px;
+}
+
+/* "+n more" look */
+.fc .fc-more-link {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* Slight, compact font in month view (avoid overflow) */
+.fc .fc-daygrid-event {
+  font-size: 12px;  /* was 20px; smaller prevents overflow */
+  line-height: 1.1;
+}
+
+/* ------- WEEK/DAY (timeGrid) ------- */
+/* Ensure event blocks clip long content so venue can ellipsize */
+.fc .fc-timegrid-event .fc-event-main {
+  overflow: hidden;
+}
+
+/* ------- LIST view ------- */
+/* Slightly larger title in list view, but allow wrapping for venue/details */
+.fc .fc-list-event-title {
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: normal;      /* allow wrapping */
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;   /* wrap long room names like SR.C.6.09 */
+}
+
+/* If FullCalendar renders an <a> or inner wrapper, keep wrapping behavior */
+.fc .fc-list-event-title a,
+.fc .fc-list-event-title > div {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word !important;
+}
+
+/* Let event content wrap in week/day (timeGrid) view */
+.fc .fc-timegrid-event .fc-event-main {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Ensure both time and title can wrap if needed */
+.fc .fc-timegrid-event .fc-event-time,
+.fc .fc-timegrid-event .fc-event-title {
+  white-space: normal;
+}
