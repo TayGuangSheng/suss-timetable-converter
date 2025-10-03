@@ -8,6 +8,8 @@ import ExportButtons from "./components/Export/ExportButtons";
 import EventList from "./components/Editor/EventList";
 import { Event } from "./lib/calendar/eventSchema";
 
+import logo from "./assets/logo.png";
+
 export default function App() {
   const [events, setEvents] = useState<Event[]>([]);
   const [filter, setFilter] = useState<{ modules: string[]; search: string }>({
@@ -28,7 +30,14 @@ export default function App() {
     <div className="min-h-screen">
       <header className="border-b border-gray-800 sticky top-0 bg-gray-950/80 backdrop-blur z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_12px] shadow-sky-400"></div>
+          {/* ⬇️ replace the blue dot with your logo */}
+          <img
+            src={logo}              // if using public/logo.svg: use src="/logo.svg"
+            alt="SUSS Timetable Converter"
+            className="h-6 w-6 rounded-md"
+            loading="eager"
+            decoding="async"
+          />
           <h1 className="text-lg font-semibold">SUSS Timetable Converter</h1>
         </div>
       </header>
@@ -57,7 +66,12 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 flex items-center justify-between gap-3">
           <p>All parsing is done locally in your browser. No files are uploaded.</p>
           <p>
-            Built by <span className="font-medium text-gray-200"><a href="https://github.com/TayGuangSheng">GS Tay</a></span>
+            Built by{" "}
+            <span className="font-medium text-gray-200">
+              <a href="https://github.com/TayGuangSheng" target="_blank" rel="noreferrer">
+                GS Tay
+              </a>
+            </span>
           </p>
         </div>
       </footer>
