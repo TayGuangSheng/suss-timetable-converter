@@ -6,13 +6,13 @@ import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import { useMemo } from "react";
 import type { Event } from "../../lib/calendar/eventSchema";
-import { colorFor, type ColorOverrides } from "../../lib/calendar/colorPalette"; // ⬅️ import type
+import { colorFor, type ColorOverrides } from "../../lib/calendar/colorPalette";
 import { DateTime } from "luxon";
-import enGb from "@fullcalendar/core/locales/en-gb"; // ⬅️ D–M–Y locale
+import enGb from "@fullcalendar/core/locales/en-gb";
 
 export default function CalendarView({
   events,
-  overrides, // ⬅️ new optional prop
+  overrides,
 }: {
   events: Event[];
   overrides?: ColorOverrides;
@@ -20,18 +20,18 @@ export default function CalendarView({
   const fcEvents = useMemo(
     () =>
       events.map((e) => {
-        const color = colorFor(e.moduleCode, overrides); // ⬅️ apply override
+        const color = colorFor(e.moduleCode, overrides);
         return {
           id: e.id,
-          title: `${e.moduleCode}${e.group ? " " + e.group : ""}`, // week/day title
+          title: `${e.moduleCode}${e.group ? " " + e.group : ""}`,
           start: e.start,
           end: e.end,
-          extendedProps: e, // { moduleCode, group, venue, remarks, ... }
+          extendedProps: e,
           backgroundColor: color,
           borderColor: color,
         };
       }),
-    [events, overrides] // ⬅️ recompute when overrides change
+    [events, overrides]
   );
 
   return (
@@ -67,14 +67,36 @@ export default function CalendarView({
             listDaySideFormat: { year: "numeric" },
           },
         }}
+
+        /* ---------- colored dot in MONTH only ---------- */
         eventContent={(arg: any) => {
           const ev = arg.event.extendedProps as Event;
           const isMonth = arg.view.type === "dayGridMonth";
-          const isList = arg.view.type.startsWith("list");
 
           if (isMonth) {
+            const color =
+              arg.event.backgroundColor || arg.event.borderColor || "#9ca3af";
+            const Dot = () => (
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  minWidth: 8,
+                  borderRadius: 9999,
+                  background: color,
+                  marginRight: 6,
+                  marginTop: 1,
+                  boxShadow: "0 0 0 1px rgba(0,0,0,.15)",
+                }}
+              />
+            );
+
+            // Month: single compact line with dot + time + module (keeps row height tidy)
             return (
-              <div style={{ lineHeight: 1.1 }}>
+              <div className="flex items-center min-w-0" style={{ lineHeight: 1.1 }}>
+                <Dot />
                 <div className="text-xs font-semibold truncate">
                   {arg.timeText} {ev.moduleCode}
                 </div>
@@ -82,6 +104,7 @@ export default function CalendarView({
             );
           }
 
+          // Week/Day/List unchanged (no dot)
           return (
             <div style={{ lineHeight: 1.15 }}>
               <div className="text-s font-semibold">
@@ -95,6 +118,8 @@ export default function CalendarView({
             </div>
           );
         }}
+
+        /* Tooltip: unchanged */
         eventDidMount={(info) => {
           const ev = info.event.extendedProps as Event;
           const isMonth = info.view.type === "dayGridMonth";

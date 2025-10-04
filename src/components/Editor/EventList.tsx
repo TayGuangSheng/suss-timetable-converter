@@ -59,13 +59,13 @@ export default function EventList({
                 {DateTime.fromISO(e.date).toFormat("d LLL yyyy")}
               </td>
 
-              {/* time-only inputs */}
+              {/* time-only inputs (no clock icon) */}
               <td className="px-3 py-1">
                 <input
                   type="time"
                   value={hhmmFromIso(e.start)}
                   onChange={(ev) => updateTime(e.id, "start", ev.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1"
+                  className="time-input w-full bg-gray-900 border border-gray-700 rounded px-2 py-1"
                 />
               </td>
               <td className="px-3 py-1">
@@ -73,7 +73,7 @@ export default function EventList({
                   type="time"
                   value={hhmmFromIso(e.end)}
                   onChange={(ev) => updateTime(e.id, "end", ev.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1"
+                  className="time-input w-full bg-gray-900 border border-gray-700 rounded px-2 py-1"
                 />
               </td>
 
