@@ -67,33 +67,32 @@ export default function CalendarView({
             listDaySideFormat: { year: "numeric" },
           },
         }}
-
-        /* ---------- colored dot in MONTH only ---------- */
+        /* ---------- colored dot + compact first line ---------- */
         eventContent={(arg: any) => {
           const ev = arg.event.extendedProps as Event;
           const isMonth = arg.view.type === "dayGridMonth";
+          const color =
+            arg.event.backgroundColor || arg.event.borderColor || "#9ca3af";
+
+          const Dot = () => (
+            <span
+              aria-hidden
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                minWidth: 8,
+                borderRadius: 9999,
+                background: color,
+                marginRight: 6,
+                marginTop: 1,
+                boxShadow: "0 0 0 1px rgba(0,0,0,.15)",
+              }}
+            />
+          );
 
           if (isMonth) {
-            const color =
-              arg.event.backgroundColor || arg.event.borderColor || "#9ca3af";
-            const Dot = () => (
-              <span
-                aria-hidden
-                style={{
-                  display: "inline-block",
-                  width: 8,
-                  height: 8,
-                  minWidth: 8,
-                  borderRadius: 9999,
-                  background: color,
-                  marginRight: 6,
-                  marginTop: 1,
-                  boxShadow: "0 0 0 1px rgba(0,0,0,.15)",
-                }}
-              />
-            );
-
-            // Month: single compact line with dot + time + module (keeps row height tidy)
+            // Single-line: dot + time + code (truncate)
             return (
               <div className="flex items-center min-w-0" style={{ lineHeight: 1.1 }}>
                 <Dot />
@@ -104,11 +103,14 @@ export default function CalendarView({
             );
           }
 
-          // Week/Day/List unchanged (no dot)
+          // Week/Day/List: dot on first row; venue wraps on second row
           return (
             <div style={{ lineHeight: 1.15 }}>
-              <div className="text-s font-semibold">
-                {arg.timeText} {arg.event.title}
+              <div className="flex items-center min-w-0">
+                <Dot />
+                <div className="text-s font-semibold truncate">
+                  {arg.timeText} {arg.event.title}
+                </div>
               </div>
               {ev?.venue && (
                 <div className="text-xs opacity-85 whitespace-normal break-words leading-tight">
@@ -118,8 +120,6 @@ export default function CalendarView({
             </div>
           );
         }}
-
-        /* Tooltip: unchanged */
         eventDidMount={(info) => {
           const ev = info.event.extendedProps as Event;
           const isMonth = info.view.type === "dayGridMonth";
