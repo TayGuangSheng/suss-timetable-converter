@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useEffect, useMemo, useState } from "react";
 import PdfUpload from "./components/Upload/PdfUpload";
 import CalendarView from "./components/Calendar/CalendarView";
@@ -7,10 +8,11 @@ import ConflictBanner from "./components/Calendar/ConflictBanner";
 import ExportButtons from "./components/Export/ExportButtons";
 import EventList from "./components/Editor/EventList";
 import { Event } from "./lib/calendar/eventSchema";
-import type { ColorOverrides } from "./lib/calendar/colorPalette"; // ⬅️ NEW
+import type { ColorOverrides } from "./lib/calendar/colorPalette";
+import { decodeSharedState } from "./lib/share/serialize"; // ⬅️ NEW (share-by-link import)
 import logo from "./assets/logo.png";
 
-const COLOR_KEY = "suss-color-overrides"; // ⬅️ NEW
+const COLOR_KEY = "suss-color-overrides";
 
 export default function App() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -19,7 +21,7 @@ export default function App() {
     search: ""
   });
 
-  // ⬅️ NEW: load & persist color overrides
+  // ⬇️ Load & persist color overrides
   const [overrides, setOverrides] = useState<ColorOverrides>(() => {
     try {
       return JSON.parse(localStorage.getItem(COLOR_KEY) || "{}");
@@ -33,10 +35,39 @@ export default function App() {
     } catch {}
   }, [overrides]);
 
+  // ⬇️ NEW: hydrate from shared link (#s=...) once on mount
+  useEffect(() => {
+    const m = window.location.hash.match(/^#s=([A-Za-z0-9\-_]+)/);
+    if (!m) return;
+    const token = m[1];
+    const shared = decodeSharedState(token);
+    if (shared) {
+      setEvents(shared.events as unknown as Event[]);
+      if (shared.overrides) {
+        setOverrides(shared.overrides);
+        try {
+          localStorage.setItem(COLOR_KEY, JSON.stringify(shared.overrides));
+        } catch {}
+      }
+    }
+    // clean hash so refresh won't re-import
+    history.replaceState(null, "", window.location.pathname);
+  }, []);
+
   const visible = events.filter((e) => {
-    const modOk = filter.modules.length === 0 || filter.modules.includes(e.moduleCode);
-    const s = (e.venue || "") + " " + (e.remarks || "") + " " + e.moduleCode + " " + (e.group || "");
-    const searchOk = filter.search.trim() === "" || s.toLowerCase().includes(filter.search.toLowerCase());
+    const modOk =
+      filter.modules.length === 0 || filter.modules.includes(e.moduleCode);
+    const s =
+      (e.venue || "") +
+      " " +
+      (e.remarks || "") +
+      " " +
+      e.moduleCode +
+      " " +
+      (e.group || "");
+    const searchOk =
+      filter.search.trim() === "" ||
+      s.toLowerCase().includes(filter.search.toLowerCase());
     return modOk && searchOk;
   });
 
@@ -70,11 +101,13 @@ export default function App() {
             search={filter.search}
             onSearch={(v) => setFilter((f) => ({ ...f, search: v }))}
           />
-          {/* ⬇️ pass overrides + handlers */}
+          {/* Legend uses overrides */}
           <Legend
             events={events}
             overrides={overrides}
-            onPick={(code, color) => setOverrides((o) => ({ ...o, [code]: color }))}
+            onPick={(code, color) =>
+              setOverrides((o) => ({ ...o, [code]: color }))
+            }
             onReset={(code) =>
               setOverrides((o) => {
                 const n = { ...o };
@@ -83,14 +116,16 @@ export default function App() {
               })
             }
           />
-          <ExportButtons events={visible} />
+          {/* ⬇️ Export/Share needs both events and overrides */}
+          <ExportButtons events={visible} overrides={overrides} />
         </section>
 
         <section className="lg:col-span-3 space-y-4">
           <ConflictBanner events={visible} />
-          {/* ⬇️ make calendar use the chosen colors */}
+          {/* Calendar uses chosen colors */}
           <CalendarView events={visible} overrides={overrides} />
-          <EventList events={visible} onChange={setEvents} />
+          {/* ⬇️ IMPORTANT: pass FULL events to EventList so edits don't drop filtered ones */}
+          <EventList events={events} onChange={setEvents} />
         </section>
       </main>
 
@@ -99,8 +134,12 @@ export default function App() {
           <p>All parsing is done locally in your browser. No files are uploaded.</p>
           <p>
             Built by{" "}
-            <span className="font-medium text-gray-200">
-              <a href="https://github.com/TayGuangSheng" target="_blank" rel="noreferrer">
+            <span className="font-medium text-gray-2 00">
+              <a
+                href="https://github.com/TayGuangSheng"
+                target="_blank"
+                rel="noreferrer"
+              >
                 GS Tay
               </a>
             </span>
